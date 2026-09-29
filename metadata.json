@@ -1,0 +1,11 @@
+{
+  "name": "Quick Service - On-Demand Multi-Service Platform",
+  "description": "On-demand local home and personal services platform with instant dispatch, verified professionals, live GPS tracking, partner app, and admin control center.",
+  "requestFramePermissions": [
+    "geolocation",
+    "microphone"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

@@ -1,0 +1,77 @@
+name: Build All 3 Android Release APKs (Customer, Partner, Admin)
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build 3 Standalone Release APKs
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Java JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Set up Flutter SDK
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.19.6'
+          channel: 'stable'
+          cache: true
+
+      - name: Install Dependencies
+        working-directory: flutter_project
+        run: flutter pub get
+
+      # 1. Build Customer Release APK
+      - name: Build Customer Release APK
+        working-directory: flutter_project
+        run: |
+          flutter build apk --target lib/main_customer.dart --release
+          mv build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/QuickService-Customer-release.apk
+
+      # 2. Build Partner Release APK
+      - name: Build Partner Release APK
+        working-directory: flutter_project
+        run: |
+          flutter build apk --target lib/main_partner.dart --release
+          mv build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/QuickService-Partner-release.apk
+
+      # 3. Build Admin Operations Release APK
+      - name: Build Admin Operations Release APK
+        working-directory: flutter_project
+        run: |
+          flutter build apk --target lib/main_admin.dart --release
+          mv build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/QuickService-Admin-release.apk
+
+      # Upload All 3 APKs as individual download artifacts
+      - name: Upload Customer APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: QuickService-Customer-release.apk
+          path: flutter_project/build/app/outputs/flutter-apk/QuickService-Customer-release.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload Partner APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: QuickService-Partner-release.apk
+          path: flutter_project/build/app/outputs/flutter-apk/QuickService-Partner-release.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload Admin Operations APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: QuickService-Admin-release.apk
+          path: flutter_project/build/app/outputs/flutter-apk/QuickService-Admin-release.apk
+          if-no-files-found: error
+          retention-days: 30
