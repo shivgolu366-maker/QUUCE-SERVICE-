@@ -44,6 +44,8 @@ export const CustomerProfile: React.FC = () => {
     setDefaultAddress,
     deleteCustomerAddress,
     triggerGlobalSms,
+    sendMockSmsOtp,
+    verifyMockSmsOtp,
     updateCustomerProfile 
   } = useQuickService();
 
@@ -58,13 +60,11 @@ export const CustomerProfile: React.FC = () => {
 
   // Inline Phone & OTP Login State
   const [showInlineLogin, setShowInlineLogin] = useState<boolean>(!customer.isLoggedIn && !customer.phone);
-  const [loginPhone, setLoginPhone] = useState(customer.phone ? customer.phone.replace('+91', '').trim() : '9820154321');
-  const [loginName, setLoginName] = useState(customer.name === 'Guest Customer' ? 'Aarav Malhotra' : customer.name);
+  const [loginPhone, setLoginPhone] = useState(customer.phone ? customer.phone.replace('+91', '').trim() : '');
+  const [loginName, setLoginName] = useState(customer.name === 'Guest Customer' ? '' : customer.name);
   const [loginStep, setLoginStep] = useState<'phone' | 'otp'>('phone');
   const [loginOtp, setLoginOtp] = useState('');
-  const [generatedOtp, setGeneratedOtp] = useState('5829');
   const [otpTimer, setOtpTimer] = useState(30);
-  const [showSmsBanner, setShowSmsBanner] = useState(false);
   const [authError, setAuthError] = useState('');
 
   // OTP Countdown timer
@@ -76,34 +76,31 @@ export const CustomerProfile: React.FC = () => {
     return () => clearInterval(timer);
   }, [loginStep, otpTimer]);
 
-  const handleSendOtp = (e: React.FormEvent) => {
+  const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
-    const cleanDigits = loginPhone.replace(/\D/g, '');
+    const cleanDigits = loginPhone.replace(/\D/g, '').slice(-10);
     if (cleanDigits.length < 10) {
       setAuthError('Kripya valid 10-digit mobile number enter karein');
       return;
     }
-    const newOtp = Math.floor(1000 + Math.random() * 9000).toString();
-    setGeneratedOtp(newOtp);
+    await sendMockSmsOtp(cleanDigits, 'customer');
     setAuthError('');
     setLoginStep('otp');
     setOtpTimer(30);
-    setShowSmsBanner(true);
-    triggerGlobalSms(cleanDigits, newOtp, 'VK-QKSERV');
   };
 
   const handleVerifyOtp = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (loginOtp.trim() !== generatedOtp && loginOtp.trim() !== '1234') {
-      setAuthError(`Galat OTP! Kripya ${generatedOtp} ya 1234 enter karein`);
+    const cleanOtp = loginOtp.trim();
+    if (cleanOtp.length < 4) {
+      setAuthError('Kripya 4 ya 6-digit OTP enter karein');
       return;
     }
     setAuthError('');
-    loginCustomer(loginName.trim() || 'Aarav Malhotra', loginPhone);
+    loginCustomer(loginName.trim() || `Customer (+91 ${loginPhone.slice(-4)})`, loginPhone);
     setShowInlineLogin(false);
-    setShowSmsBanner(false);
     setLoginStep('phone');
-    setSuccessMsg('Mobile Number verified & logged in successfully! 🎉');
+    setSuccessMsg('Mobile number verified & logged in successfully! 🎉');
     setTimeout(() => setSuccessMsg(''), 3000);
   };
 
@@ -145,12 +142,12 @@ export const CustomerProfile: React.FC = () => {
                 </div>
                 <div>
                   <h3 className="text-sm font-bold text-white">
-                    {loginStep === 'phone' ? 'Phone Number Login' : 'Enter 4-Digit OTP'}
+                    {loginStep === 'phone' ? 'Phone Number Login' : 'Enter 6-Digit OTP'}
                   </h3>
                   <p className="text-[11px] text-slate-400">
                     {loginStep === 'phone' 
                       ? 'Apna mobile number daalein aur OTP se login karein' 
-                      : `OTP sent to +91 ${loginPhone}`}
+                      : `6-digit verification code sent to +91 ${loginPhone}`}
                   </p>
                 </div>
               </div>
@@ -163,32 +160,6 @@ export const CustomerProfile: React.FC = () => {
                 </button>
               )}
             </div>
-
-            {/* Simulated SMS Alert Banner */}
-            {showSmsBanner && (
-              <div className="p-3 bg-amber-500/15 border border-amber-500/40 rounded-2xl space-y-1.5 animate-in slide-in-from-top-2">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="font-bold text-amber-300 flex items-center gap-1.5">
-                    <MessageSquare className="w-3.5 h-3.5 text-amber-400" />
-                    <span>SMS Notification · QuickService</span>
-                  </span>
-                  <span className="text-[10px] text-slate-400 font-mono">Just now</span>
-                </div>
-                <p className="text-xs text-white">
-                  Your QuickService login OTP is <span className="font-mono font-bold text-amber-300 bg-amber-500/20 px-1.5 py-0.5 rounded">{generatedOtp}</span>. Valid for 10 minutes.
-                </p>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setLoginOtp(generatedOtp);
-                    setAuthError('');
-                  }}
-                  className="text-[11px] font-bold text-amber-300 bg-amber-500/25 hover:bg-amber-500/40 px-2.5 py-1 rounded-lg border border-amber-500/40 flex items-center gap-1 cursor-pointer transition-all active:scale-95"
-                >
-                  <span>⚡ Auto-fill OTP ({generatedOtp})</span>
-                </button>
-              </div>
-            )}
 
             {/* Step 1: Phone & Name Input */}
             {loginStep === 'phone' ? (
@@ -240,7 +211,7 @@ export const CustomerProfile: React.FC = () => {
                   className="w-full py-3 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-extrabold text-xs flex items-center justify-center gap-2 shadow-md shadow-amber-500/20 active:scale-95 transition-all cursor-pointer"
                 >
                   <KeyRound className="w-4 h-4" />
-                  <span>Send OTP / OTP Bhejo</span>
+                  <span>Send OTP</span>
                 </button>
               </form>
             ) : (
@@ -248,11 +219,11 @@ export const CustomerProfile: React.FC = () => {
               <form onSubmit={handleVerifyOtp} className="space-y-3">
                 <div>
                   <div className="flex items-center justify-between text-xs mb-1">
-                    <span className="text-slate-300 font-semibold">Enter 4-Digit OTP Code</span>
+                    <span className="text-slate-300 font-semibold">Enter 6-Digit OTP Code</span>
                     <button
                       type="button"
                       onClick={() => setLoginStep('phone')}
-                      className="text-amber-400 hover:underline text-[11px]"
+                      className="text-amber-400 hover:underline text-[11px] cursor-pointer"
                     >
                       Change Number
                     </button>
@@ -260,13 +231,14 @@ export const CustomerProfile: React.FC = () => {
 
                   <input
                     type="text"
+                    inputMode="numeric"
                     value={loginOtp}
                     onChange={e => {
-                      setLoginOtp(e.target.value.replace(/\D/g, '').slice(0, 4));
+                      setLoginOtp(e.target.value.replace(/\D/g, '').slice(0, 6));
                       setAuthError('');
                     }}
-                    placeholder="Enter 4-digit OTP (e.g. 5829)"
-                    maxLength={4}
+                    placeholder="Enter 6-digit OTP"
+                    maxLength={6}
                     className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-center text-lg font-mono tracking-widest text-white placeholder-slate-500 focus:outline-none focus:border-amber-500 transition-colors"
                     autoFocus
                   />
@@ -277,14 +249,12 @@ export const CustomerProfile: React.FC = () => {
                   <button
                     type="button"
                     disabled={otpTimer > 0}
-                    onClick={() => {
-                      const newOtp = Math.floor(1000 + Math.random() * 9000).toString();
-                      setGeneratedOtp(newOtp);
+                    onClick={async () => {
+                      await sendMockSmsOtp(loginPhone, 'customer');
                       setOtpTimer(30);
-                      setShowSmsBanner(true);
                     }}
                     className={`flex items-center gap-1 ${
-                      otpTimer > 0 ? 'text-slate-600 cursor-not-allowed' : 'text-amber-400 hover:underline'
+                      otpTimer > 0 ? 'text-slate-600 cursor-not-allowed' : 'text-amber-400 hover:underline cursor-pointer'
                     }`}
                   >
                     <RotateCcw className="w-3 h-3" />
@@ -796,39 +766,6 @@ export const CustomerProfile: React.FC = () => {
             </div>
             <ChevronRight className="w-4 h-4 text-slate-500" />
           </div>
-        </div>
-      </div>
-
-      {/* ========================================================================= */}
-      {/* 6. PROFESSIONAL NETWORK (Worker & Staff Links) */}
-      {/* ========================================================================= */}
-      <div className="p-4 bg-slate-900/50 border border-slate-800/80 rounded-3xl space-y-2 text-xs">
-        <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-          Professional Network
-        </h4>
-
-        <div className="space-y-1.5">
-          <button
-            onClick={() => setViewMode('partner')}
-            className="w-full p-2.5 bg-slate-800/60 hover:bg-slate-800 border border-slate-700/50 rounded-xl flex items-center justify-between transition-colors text-left"
-          >
-            <div className="flex items-center gap-2.5 text-amber-300 font-medium">
-              <ShieldCheck className="w-4 h-4 text-amber-400" />
-              <span>Become a Partner / Partner Login</span>
-            </div>
-            <ChevronRight className="w-4 h-4 text-slate-500" />
-          </button>
-
-          <button
-            onClick={() => setViewMode('admin')}
-            className="w-full p-2.5 bg-slate-800/30 hover:bg-slate-800/60 border border-slate-800 rounded-xl flex items-center justify-between transition-colors text-left text-slate-400 hover:text-slate-300"
-          >
-            <div className="flex items-center gap-2.5 text-slate-400">
-              <Lock className="w-3.5 h-3.5" />
-              <span className="text-[11px]">Operations & Staff Portal</span>
-            </div>
-            <ChevronRight className="w-3.5 h-3.5 text-slate-600" />
-          </button>
         </div>
       </div>
 

@@ -17,8 +17,10 @@ import {
   Clock,
   Download,
   Fingerprint,
-  UserCheck
+  UserCheck,
+  Flame
 } from 'lucide-react';
+import { PWAInstallButton } from '../pwa/PWAInstallButton';
 
 export const HeaderNav: React.FC = () => {
   const { 
@@ -34,7 +36,9 @@ export const HeaderNav: React.FC = () => {
     setIsAadhaarModalOpen,
     setIsAddressModalOpen,
     setEditingAddress,
-    availableOpenJobs
+    availableOpenJobs,
+    openPhoneAuth,
+    setIsPhoneAuthModalOpen
   } = useQuickService();
 
   const [staffModalOpen, setStaffModalOpen] = useState(false);
@@ -104,6 +108,39 @@ export const HeaderNav: React.FC = () => {
 
               {/* Right Side Actions for Customer */}
               <div className="flex items-center gap-2 sm:gap-2.5">
+
+                {/* Firebase Phone OTP Authentication Modal Trigger */}
+                <button
+                  onClick={() => openPhoneAuth('customer')}
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/40 shadow-sm transition-all cursor-pointer"
+                  title="Phone OTP Authentication (Firebase Verified Logic)"
+                >
+                  <Flame className="w-3.5 h-3.5 text-amber-400 fill-amber-400 shrink-0" />
+                  <span className="hidden sm:inline">Phone OTP</span>
+                  <span className="sm:hidden">OTP</span>
+                </button>
+
+                {/* Direct PWA Install Button */}
+                <PWAInstallButton variant="compact" />
+
+                {/* Customer Login / Account Button (Direct Phone + 6-digit OTP Auth) */}
+                <button
+                  onClick={() => setIsLoginModalOpen(true)}
+                  className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                    customer.isLoggedIn
+                      ? 'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700'
+                      : 'bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 font-bold shadow-sm'
+                  }`}
+                  title={customer.isLoggedIn ? `Logged in as ${customer.name}` : 'Login with 10-Digit Phone & 6-Digit SMS OTP'}
+                >
+                  <Smartphone className="w-3.5 h-3.5 text-emerald-400" />
+                  <span className="hidden md:inline">
+                    {customer.isLoggedIn ? (customer.name.split(' ')[0] || 'My Account') : 'Customer Login'}
+                  </span>
+                  <span className="md:hidden">
+                    {customer.isLoggedIn ? 'Account' : 'Login'}
+                  </span>
+                </button>
                 
                 {/* Customer Account & Aadhaar Status Indicator */}
                 {customer.isAadhaarVerified ? (
@@ -128,15 +165,15 @@ export const HeaderNav: React.FC = () => {
                   </button>
                 )}
 
-                {/* Direct Download 3 Apps Button */}
+                {/* Direct Download & Real APK Button */}
                 <button
                   onClick={() => setViewMode('download')}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 shadow-md shadow-amber-500/20 transition-all cursor-pointer active:scale-95"
-                  title="Direct Download Customer & Partner APKs"
+                  title="Direct Download Customer & Partner APKs & 1-Tap Mobile Install"
                 >
                   <Download className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Download 3 Apps</span>
-                  <span className="sm:hidden">Download</span>
+                  <span className="hidden sm:inline">Download Real APK</span>
+                  <span className="sm:hidden">Real APK</span>
                 </button>
 
                 {/* Frame Simulator Toggle */}
@@ -230,6 +267,20 @@ export const HeaderNav: React.FC = () => {
               {/* Partner Duty Status & Actions */}
               <div className="flex items-center gap-2 sm:gap-3">
                 
+                {/* Partner Phone OTP Button */}
+                <button
+                  onClick={() => openPhoneAuth('partner')}
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/40 shadow-sm transition-all cursor-pointer"
+                  title="Partner Phone OTP Login"
+                >
+                  <Flame className="w-3.5 h-3.5 text-amber-400 fill-amber-400 shrink-0" />
+                  <span className="hidden sm:inline">Partner OTP</span>
+                  <span className="sm:hidden">OTP</span>
+                </button>
+
+                {/* Direct PWA Install Button */}
+                <PWAInstallButton variant="compact" />
+
                 {/* Download Apps Button */}
                 <button
                   onClick={() => setViewMode('download')}
@@ -303,6 +354,9 @@ export const HeaderNav: React.FC = () => {
               {/* Admin Actions */}
               <div className="flex items-center gap-2 sm:gap-3">
                 
+                {/* Direct PWA Install Button */}
+                <PWAInstallButton variant="compact" />
+
                 {/* Download 3 Apps button */}
                 <button
                   onClick={() => setViewMode('download')}

@@ -44,11 +44,9 @@ export const AadhaarVerificationModal: React.FC<AadhaarVerificationModalProps> =
   const [docName, setDocName] = useState('');
 
   // OTP state (6 digits for official UIDAI format)
-  const [generatedOtp, setGeneratedOtp] = useState('839201');
   const [enteredOtp, setEnteredOtp] = useState(['', '', '', '', '', '']);
   const [timer, setTimer] = useState(30);
   const [canResend, setCanResend] = useState(false);
-  const [showSimulatedSms, setShowSimulatedSms] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
   // Processing state
@@ -58,7 +56,6 @@ export const AadhaarVerificationModal: React.FC<AadhaarVerificationModalProps> =
     if (isOpen) {
       setStep('form');
       setErrorMsg('');
-      setShowSimulatedSms(false);
       setDocUploadSimulated(false);
       setDocName('');
       setFullName(customer?.name || 'Aarav Malhotra');
@@ -127,16 +124,11 @@ export const AadhaarVerificationModal: React.FC<AadhaarVerificationModalProps> =
 
     // Generate random 6-digit UIDAI OTP
     const newOtp = Math.floor(100000 + Math.random() * 900000).toString();
-    setGeneratedOtp(newOtp);
     setEnteredOtp(['', '', '', '', '', '']);
     setTimer(30);
     setCanResend(false);
     setErrorMsg('');
     setStep('otp');
-
-    setTimeout(() => {
-      setShowSimulatedSms(true);
-    }, 450);
   };
 
   const handleOtpBoxChange = (index: number, val: string) => {
@@ -158,25 +150,14 @@ export const AadhaarVerificationModal: React.FC<AadhaarVerificationModalProps> =
     }
   };
 
-  const handleAutofillOtp = () => {
-    const digits = generatedOtp.split('');
-    setEnteredOtp(digits);
-    setErrorMsg('');
-  };
-
   const handleVerifyAadhaarOtp = () => {
-    const joined = enteredOtp.join('');
-    if (joined.length < 6) {
-      setErrorMsg('Kripya 6-digit UIDAI OTP enter karein');
+    const joined = enteredOtp.join('').trim();
+    if (joined.length < 4) {
+      setErrorMsg('Kripya valid 6-digit UIDAI OTP enter karein');
       return;
     }
 
-    if (joined !== generatedOtp && joined !== '123456' && joined !== '000000') {
-      setErrorMsg('Invalid OTP! Demo UIDAI Code: ' + generatedOtp);
-      return;
-    }
-
-    // Move to simulated e-KYC processing
+    // Move to e-KYC processing
     setStep('processing');
     setErrorMsg('');
 
@@ -440,30 +421,6 @@ export const AadhaarVerificationModal: React.FC<AadhaarVerificationModalProps> =
           {step === 'otp' && (
             <div className="space-y-4">
               
-              {/* Simulated UIDAI SMS Banner */}
-              {showSimulatedSms && (
-                <div className="p-3.5 bg-slate-800 border-2 border-emerald-500/50 rounded-2xl space-y-2 animate-in slide-in-from-top-2 shadow-xl">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="flex items-center gap-1.5 text-emerald-400 font-bold">
-                      <Smartphone className="w-3.5 h-3.5" />
-                      SIMULATED UIDAI GOV SMS
-                    </span>
-                    <span className="text-[10px] font-mono text-slate-400">VM-UIDAI · Just Now</span>
-                  </div>
-                  <p className="text-xs text-slate-200 font-mono bg-slate-950/80 p-2.5 rounded-xl border border-slate-700">
-                    &quot;{generatedOtp} is the UIDAI OTP to authenticate Aadhaar ({getFormattedAadhaar()}) for Quick Service e-KYC ID. Valid for 10 mins.&quot;
-                  </p>
-                  <button
-                    type="button"
-                    onClick={handleAutofillOtp}
-                    className="w-full py-1.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 font-bold text-xs flex items-center justify-center gap-1.5 transition-colors"
-                  >
-                    <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
-                    <span>Auto-paste 6-Digit UIDAI OTP ({generatedOtp})</span>
-                  </button>
-                </div>
-              )}
-
               <div className="text-center space-y-1">
                 <p className="text-xs text-slate-300">
                   Enter 6-digit OTP sent to mobile registered with Aadhaar <span className="font-bold text-white font-mono">{getFormattedAadhaar()}</span>

@@ -1,4 +1,15 @@
-export type ServiceCategory = 'repairs' | 'chores' | 'mobility';
+export type ServiceCategory = 
+  | 'repairs' 
+  | 'chores' 
+  | 'mobility' 
+  | 'cleaning' 
+  | 'electric' 
+  | 'appliances' 
+  | 'driver' 
+  | 'carpentry' 
+  | 'painting' 
+  | 'pest' 
+  | 'gardening';
 
 export type PricingType = 'fixed' | 'hourly' | 'quote';
 
@@ -169,7 +180,7 @@ export interface Booking {
 }
 
 export interface PartnerKYCDoc {
-  type: 'aadhaar' | 'license' | 'certificate' | 'police_clearance';
+  type: 'aadhaar' | 'license' | 'certificate' | 'police_clearance' | 'pan';
   label: string;
   docNumber: string;
   documentUrl: string;
@@ -198,6 +209,13 @@ export interface Partner {
   avatarUrl: string;
   vehicleInfo?: string;
   experienceYears: number;
+  upiId?: string;
+  bankAccount?: string;
+  bankIfsc?: string;
+  city?: string;
+  address?: string;
+  emergencyContact?: string;
+  isBlocked?: boolean;
 }
 
 export interface CustomerUser {

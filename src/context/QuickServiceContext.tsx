@@ -9,7 +9,8 @@ import {
   AdminMetrics, 
   ServiceItem,
   TaskAttachment,
-  ChecklistItem
+  ChecklistItem,
+  ServiceCategory
 } from '../types';
 import { 
   MOCK_CUSTOMER, 
@@ -18,7 +19,7 @@ import {
   INITIAL_BOOKINGS, 
   SERVICES_CATALOG 
 } from '../data/mockData';
-import { playIncomingBookingChime, playClaimSuccessChime } from '../utils/audioNotify';
+import { playIncomingBookingChime, playClaimSuccessChime, playSmsNotificationSound } from '../utils/audioNotify';
 import { triggerAppSms } from '../components/common/GlobalSmsNotification';
 
 export type AppViewMode = 'customer' | 'partner' | 'admin' | 'blueprint' | 'flutter' | 'download';
@@ -117,6 +118,12 @@ interface QuickServiceContextType {
   deleteCustomerAddress: (addressId: string) => void;
   setDefaultAddress: (addressId: string) => void;
   triggerGlobalSms: (phone: string, otp: string, sender?: string) => void;
+  isPhoneAuthModalOpen: boolean;
+  setIsPhoneAuthModalOpen: (open: boolean) => void;
+  phoneAuthRole: 'customer' | 'partner';
+  setPhoneAuthRole: (role: 'customer' | 'partner') => void;
+  openPhoneAuth: (role?: 'customer' | 'partner') => void;
+
   isLoginModalOpen: boolean;
   setIsLoginModalOpen: (open: boolean) => void;
   isAadhaarModalOpen: boolean;
@@ -126,7 +133,35 @@ interface QuickServiceContextType {
   editingAddress: CustomerUser['savedAddresses'][0] | null;
   setEditingAddress: (addr: CustomerUser['savedAddresses'][0] | null) => void;
 
-  // Actions - Partner
+  // Mock SMS OTP Service (User Requirement: 6-digit codes to customer and partner phone numbers)
+  mockSmsOtpService: {
+    lastOtp: string | null;
+    lastPhone: string | null;
+    lastRole: 'customer' | 'partner' | null;
+    deliveryStatus: 'idle' | 'sending' | 'delivered';
+    history: { id: string; phone: string; otp: string; role: 'customer' | 'partner'; timestamp: string; sender: string }[];
+  };
+  sendMockSmsOtp: (phone: string, role: 'customer' | 'partner', customSender?: string) => Promise<{ success: boolean; otp: string; message: string }>;
+  verifyMockSmsOtp: (phone: string, otp: string, role?: 'customer' | 'partner') => { success: boolean; message: string };
+
+  // Actions & State - Partner Authentication & Details Edit (User Requirement)
+  isPartnerLoggedIn: boolean;
+  setIsPartnerLoggedIn: (loggedIn: boolean) => void;
+  loginPartnerWithOtp: (phone: string, proofData?: {
+    fullName: string;
+    category: ServiceCategory;
+    proofType: 'aadhaar' | 'license' | 'certificate' | 'police_clearance' | 'pan';
+    docNumber: string;
+    vehicleInfo?: string;
+    experienceYears?: number;
+    skills?: string[];
+  }) => { success: boolean; partner: Partner; isNew: boolean };
+  logoutPartner: () => void;
+  updatePartnerProfile: (partnerId: string, updates: Partial<Partner>) => void;
+  isPartnerLoginModalOpen: boolean;
+  setIsPartnerLoginModalOpen: (open: boolean) => void;
+  isPartnerEditModalOpen: boolean;
+  setIsPartnerEditModalOpen: (open: boolean) => void;
   togglePartnerOnline: () => void;
   acceptIncomingJob: (bookingId: string) => { success: boolean; message?: string };
   rejectIncomingJob: (bookingId: string) => void;
@@ -263,6 +298,37 @@ export const QuickServiceProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
   const activePartner = partners.find(p => p.id === activePartnerId) || partners[0];
 
+  // Partner Authentication & Modal States
+  const [isPartnerLoggedIn, setIsPartnerLoggedInState] = useState<boolean>(() => {
+    const saved = localStorage.getItem('qs_partner_logged_in');
+    return saved !== null ? saved === 'true' : true;
+  });
+
+  const setIsPartnerLoggedIn = (val: boolean) => {
+    setIsPartnerLoggedInState(val);
+    localStorage.setItem('qs_partner_logged_in', String(val));
+  };
+
+  const [isPartnerLoginModalOpen, setIsPartnerLoginModalOpen] = useState<boolean>(false);
+  const [isPartnerEditModalOpen, setIsPartnerEditModalOpen] = useState<boolean>(false);
+
+  // Mock SMS OTP Service State (Simulates successful delivery of 6-digit codes to customer and partner)
+  const [mockSmsOtpService, setMockSmsOtpService] = useState<{
+    lastOtp: string | null;
+    lastPhone: string | null;
+    lastRole: 'customer' | 'partner' | null;
+    deliveryStatus: 'idle' | 'sending' | 'delivered';
+    history: { id: string; phone: string; otp: string; role: 'customer' | 'partner'; timestamp: string; sender: string }[];
+  }>(() => {
+    return {
+      lastOtp: null,
+      lastPhone: null,
+      lastRole: null,
+      deliveryStatus: 'idle',
+      history: []
+    };
+  });
+
   // Coupons
   const [coupons, setCoupons] = useState<Coupon[]>(() => {
     const saved = localStorage.getItem('qs_coupons');
@@ -344,6 +410,13 @@ export const QuickServiceProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const [chatBookingId, setChatBookingId] = useState<string | null>(null);
 
   // Customer Login, Aadhaar & Address Modal state
+  const [isPhoneAuthModalOpen, setIsPhoneAuthModalOpen] = useState<boolean>(false);
+  const [phoneAuthRole, setPhoneAuthRole] = useState<'customer' | 'partner'>('customer');
+  const openPhoneAuth = (targetRole: 'customer' | 'partner' = 'customer') => {
+    setPhoneAuthRole(targetRole);
+    setIsPhoneAuthModalOpen(true);
+  };
+
   const [isLoginModalOpen, setIsLoginModalOpen] = useState<boolean>(false);
   const [isAadhaarModalOpen, setIsAadhaarModalOpen] = useState<boolean>(false);
   const [isAddressModalOpen, setIsAddressModalOpen] = useState<boolean>(false);
@@ -479,6 +552,8 @@ export const QuickServiceProvider: React.FC<{ children: React.ReactNode }> = ({ 
     packageId?: string;
     packageName?: string;
     couponCode?: string;
+    address?: string;
+    coords?: [number, number];
     paymentMethod: 'upi' | 'card' | 'wallet' | 'cash';
   }) => {
     const bookingId = `QS-${Math.floor(10000 + Math.random() * 90000)}`;
@@ -735,6 +810,195 @@ export const QuickServiceProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
   const triggerGlobalSms = (phone: string, otp: string, sender = 'VK-QKSERV') => {
     triggerAppSms(phone, otp, sender);
+  };
+
+  // =========================================================================
+  // Mock SMS OTP Service (User Requirement: 6-digit codes delivery simulation)
+  // =========================================================================
+  const sendMockSmsOtp = async (
+    phone: string, 
+    role: 'customer' | 'partner' = 'customer', 
+    customSender?: string
+  ): Promise<{ success: boolean; otp: string; message: string }> => {
+    const cleanPhone = phone.replace(/\D/g, '').slice(-10);
+    // Generate authentic 6-digit secure code
+    const generatedOtp = Math.floor(100000 + Math.random() * 900000).toString();
+    const sender = customSender || (role === 'partner' ? 'VK-QKPRTN' : 'VK-QKSERV');
+
+    setMockSmsOtpService(prev => ({
+      ...prev,
+      lastOtp: generatedOtp,
+      lastPhone: cleanPhone,
+      lastRole: role,
+      deliveryStatus: 'sending'
+    }));
+
+    // Trigger instant realistic push SMS banner and audio chime
+    playSmsNotificationSound();
+    triggerAppSms(cleanPhone, generatedOtp, sender);
+
+    const historyItem = {
+      id: 'sms-' + Date.now(),
+      phone: cleanPhone,
+      otp: generatedOtp,
+      role,
+      timestamp: 'Just now',
+      sender
+    };
+
+    setMockSmsOtpService(prev => ({
+      ...prev,
+      deliveryStatus: 'delivered',
+      history: [historyItem, ...prev.history.slice(0, 19)]
+    }));
+
+    return {
+      success: true,
+      otp: generatedOtp,
+      message: `SMS delivered successfully with 6-digit code to +91 ${cleanPhone}`
+    };
+  };
+
+  const verifyMockSmsOtp = (phone: string, otp: string, _role?: 'customer' | 'partner'): { success: boolean; message: string } => {
+    const cleanPhone = phone.replace(/\D/g, '').slice(-10);
+    const cleanOtp = otp.trim();
+    if (
+      (mockSmsOtpService.lastOtp && mockSmsOtpService.lastOtp === cleanOtp && (!mockSmsOtpService.lastPhone || mockSmsOtpService.lastPhone === cleanPhone)) ||
+      cleanOtp === mockSmsOtpService.lastOtp ||
+      cleanOtp === '123456' ||
+      cleanOtp === '000000' ||
+      cleanOtp === '492815' ||
+      cleanOtp === '999999'
+    ) {
+      return { success: true, message: 'OTP verified successfully' };
+    }
+    return {
+      success: false,
+      message: `Invalid OTP! Please enter code ${mockSmsOtpService.lastOtp || '123456'}`
+    };
+  };
+
+  // =========================================================================
+  // Partner Authentication with Proof & Details Edit (User Requirement)
+  // =========================================================================
+  const loginPartnerWithOtp = (phone: string, proofData?: {
+    fullName: string;
+    category: ServiceCategory;
+    proofType: 'aadhaar' | 'license' | 'certificate' | 'police_clearance' | 'pan';
+    docNumber: string;
+    vehicleInfo?: string;
+    experienceYears?: number;
+    skills?: string[];
+  }): { success: boolean; partner: Partner; isNew: boolean } => {
+    const cleanPhone = phone.replace(/\D/g, '').slice(-10);
+    const existing = partners.find(p => p.phone.replace(/\D/g, '').endsWith(cleanPhone));
+    if (existing) {
+      if (proofData) {
+        const updated = partners.map(p => {
+          if (p.id === existing.id) {
+            const newDocs = [...p.kycDocs];
+            const existingDocIdx = newDocs.findIndex(d => d.type === proofData.proofType);
+            const docItem = {
+              type: proofData.proofType,
+              label: (proofData.proofType || 'Proof').toUpperCase() + ' Verification Document',
+              docNumber: proofData.docNumber || 'DOC-VERIFIED',
+              documentUrl: '/docs/' + proofData.proofType + '.pdf',
+              uploadedAt: 'Today (Online Verified)',
+              status: 'verified' as const
+            };
+            if (existingDocIdx >= 0) newDocs[existingDocIdx] = docItem;
+            else newDocs.push(docItem);
+            return {
+              ...p,
+              name: proofData.fullName?.trim() || p.name,
+              category: proofData.category || p.category,
+              kycStatus: 'verified' as const,
+              kycDocs: newDocs,
+              vehicleInfo: proofData.vehicleInfo || p.vehicleInfo,
+              isOnline: true
+            };
+          }
+          return p;
+        });
+        setPartners(updated);
+        localStorage.setItem('qs_partners', JSON.stringify(updated));
+      }
+      setActivePartnerId(existing.id);
+      setIsPartnerLoggedIn(true);
+      return { success: true, partner: existing, isNew: false };
+    }
+
+    // Register brand new partner with verification proof
+    const newPartnerId = 'pt-' + Math.floor(1000 + Math.random() * 9000);
+    const categoryLabels: Record<string, string> = {
+      repairs: 'Plumbing & Maintenance',
+      cleaning: 'Home Deep Cleaning',
+      electric: 'Electrician & Appliances',
+      appliances: 'AC & Refrigeration',
+      driver: 'Chauffeur & Mobility',
+      carpentry: 'Carpentry & Furniture',
+      painting: 'Wall Painting & Waterproofing',
+      pest: 'Pest Control',
+      gardening: 'Garden & Lawn Care'
+    };
+
+    const newPartner: Partner = {
+      id: newPartnerId,
+      name: proofData?.fullName?.trim() || `Partner (+91 ${cleanPhone.slice(-4)})`,
+      phone: `+91 ${cleanPhone}`,
+      email: `${(proofData?.fullName || 'partner').toLowerCase().replace(/\s+/g, '')}@quickservice.pro`,
+      category: proofData?.category || 'repairs',
+      categoryName: categoryLabels[proofData?.category || 'repairs'] || 'Quick Services Pro',
+      skills: proofData?.skills && proofData.skills.length > 0 ? proofData.skills : ['Verified Specialist', 'Express Dispatch', 'Tools Certified'],
+      rating: 5.0,
+      totalJobs: 0,
+      isOnline: true,
+      kycStatus: 'verified',
+      kycDocs: [
+        {
+          type: proofData?.proofType || 'aadhaar',
+          label: (proofData?.proofType || 'Aadhaar').toUpperCase() + ' Proof of Identity',
+          docNumber: proofData?.docNumber || 'DOC-VERIFIED-' + cleanPhone.slice(-4),
+          documentUrl: '/docs/partner_proof.pdf',
+          uploadedAt: 'Today (Online Verified)',
+          status: 'verified'
+        }
+      ],
+      currentCoords: [28.5365, 77.3920],
+      walletBalance: 500, // ₹500 welcome bonus for new verified partner
+      todayEarnings: 0,
+      weeklyEarnings: 0,
+      avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=256&q=80',
+      vehicleInfo: proofData?.vehicleInfo || 'Motorcycle (DL-3S-4122)',
+      experienceYears: proofData?.experienceYears || 3,
+      upiId: `${cleanPhone}@paytm`,
+      city: 'Delhi NCR (Noida/Greater Noida)'
+    };
+
+    const updatedPartners = [newPartner, ...partners];
+    setPartners(updatedPartners);
+    localStorage.setItem('qs_partners', JSON.stringify(updatedPartners));
+    setActivePartnerId(newPartnerId);
+    setIsPartnerLoggedIn(true);
+
+    return { success: true, partner: newPartner, isNew: true };
+  };
+
+  const logoutPartner = () => {
+    setIsPartnerLoggedIn(false);
+  };
+
+  const updatePartnerProfile = (partnerId: string, updates: Partial<Partner>) => {
+    setPartners(prev => {
+      const updated = prev.map(p => {
+        if (p.id === partnerId) {
+          return { ...p, ...updates };
+        }
+        return p;
+      });
+      localStorage.setItem('qs_partners', JSON.stringify(updated));
+      return updated;
+    });
   };
 
   // Actions - Partner
@@ -1017,6 +1281,11 @@ export const QuickServiceProvider: React.FC<{ children: React.ReactNode }> = ({ 
         deleteCustomerAddress,
         setDefaultAddress,
         triggerGlobalSms,
+        isPhoneAuthModalOpen,
+        setIsPhoneAuthModalOpen,
+        phoneAuthRole,
+        setPhoneAuthRole,
+        openPhoneAuth,
         isLoginModalOpen,
         setIsLoginModalOpen,
         isAadhaarModalOpen,
@@ -1025,6 +1294,18 @@ export const QuickServiceProvider: React.FC<{ children: React.ReactNode }> = ({ 
         setIsAddressModalOpen,
         editingAddress,
         setEditingAddress,
+        mockSmsOtpService,
+        sendMockSmsOtp,
+        verifyMockSmsOtp,
+        isPartnerLoggedIn,
+        setIsPartnerLoggedIn,
+        loginPartnerWithOtp,
+        logoutPartner,
+        updatePartnerProfile,
+        isPartnerLoginModalOpen,
+        setIsPartnerLoginModalOpen,
+        isPartnerEditModalOpen,
+        setIsPartnerEditModalOpen,
         togglePartnerOnline,
         acceptIncomingJob,
         rejectIncomingJob,

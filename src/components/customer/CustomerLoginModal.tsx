@@ -8,10 +8,15 @@ import {
   ShieldCheck, 
   CheckCircle2, 
   RefreshCw, 
-  Sparkles,
-  Lock,
-  PhoneCall,
-  Info
+  Sparkles, 
+  Lock, 
+  PhoneCall, 
+  Info,
+  MessageSquare,
+  Share2,
+  Copy,
+  Check,
+  Flame
 } from 'lucide-react';
 
 interface CustomerLoginModalProps {
@@ -25,16 +30,16 @@ export const CustomerLoginModal: React.FC<CustomerLoginModalProps> = ({
   onClose,
   onOpenAadhaarVerification
 }) => {
-  const { customer, loginCustomer, triggerGlobalSms } = useQuickService();
+  const { customer, loginCustomer, sendMockSmsOtp, verifyMockSmsOtp, openPhoneAuth } = useQuickService();
 
   const [step, setStep] = useState<'input' | 'otp' | 'success'>('input');
   const [fullName, setFullName] = useState(customer?.name || '');
   const [phone, setPhone] = useState(customer?.phone?.replace('+91', '').trim() || '');
   const [email, setEmail] = useState(customer?.email || '');
   
-  // OTP state
-  const [generatedOtp, setGeneratedOtp] = useState('4829');
-  const [enteredOtp, setEnteredOtp] = useState(['', '', '', '']);
+  // 6-digit OTP state (User Requirement)
+  const [generatedOtp, setGeneratedOtp] = useState('492815');
+  const [enteredOtp, setEnteredOtp] = useState(['', '', '', '', '', '']);
   const [timer, setTimer] = useState(30);
   const [canResend, setCanResend] = useState(false);
   const [showSimulatedSms, setShowSimulatedSms] = useState(false);
@@ -49,6 +54,20 @@ export const CustomerLoginModal: React.FC<CustomerLoginModalProps> = ({
       setPhone(customer?.isLoggedIn ? customer.phone.replace('+91', '').trim() : '');
     }
   }, [isOpen, customer]);
+
+  // Listen to Global SMS Banner's "⚡ Auto-fill OTP" button
+  useEffect(() => {
+    const handleAutofillEvent = (e: any) => {
+      if (e.detail?.otp) {
+        const digits = e.detail.otp.slice(0, 6).split('');
+        while (digits.length < 6) digits.push('');
+        setEnteredOtp(digits);
+        setErrorMsg('');
+      }
+    };
+    window.addEventListener('quick_service_autofill_otp', handleAutofillEvent);
+    return () => window.removeEventListener('quick_service_autofill_otp', handleAutofillEvent);
+  }, []);
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -70,29 +89,23 @@ export const CustomerLoginModal: React.FC<CustomerLoginModalProps> = ({
     if (errorMsg) setErrorMsg('');
   };
 
-  const handleSendOtp = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!fullName.trim() || fullName.trim().length < 2) {
-      setErrorMsg('Kripya apna poora naam likhein (Please enter your full name)');
-      return;
-    }
-    if (phone.length !== 10) {
+  const handleSendOtp = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const cleanPhone = phone.replace(/\D/g, '').slice(-10);
+    if (cleanPhone.length !== 10) {
       setErrorMsg('Kripya 10-digit mobile number enter karein (Please enter valid 10-digit phone)');
       return;
     }
 
-    // Generate random 4-digit demo OTP
-    const newOtp = Math.floor(1000 + Math.random() * 9000).toString();
-    setGeneratedOtp(newOtp);
-    setEnteredOtp(['', '', '', '']);
+    // Call Mock SMS OTP service from QuickServiceContext
+    const res = await sendMockSmsOtp(cleanPhone, 'customer', 'VK-QKSERV');
+    setGeneratedOtp(res.otp);
+    setEnteredOtp(['', '', '', '', '', '']);
     setTimer(30);
     setCanResend(false);
     setErrorMsg('');
     setStep('otp');
     setShowSimulatedSms(true);
-
-    // Trigger authentic global phone SMS notification popup & audio alert
-    triggerGlobalSms(phone, newOtp, 'VK-QKSERV');
   };
 
   const handleOtpBoxChange = (index: number, val: string) => {
@@ -102,7 +115,7 @@ export const CustomerLoginModal: React.FC<CustomerLoginModalProps> = ({
     setEnteredOtp(newArr);
 
     // Auto-focus next input
-    if (val && index < 3) {
+    if (val && index < 5) {
       const nextInput = document.getElementById(`customer-otp-${index + 1}`);
       nextInput?.focus();
     }
@@ -117,6 +130,7 @@ export const CustomerLoginModal: React.FC<CustomerLoginModalProps> = ({
 
   const handleAutofillOtp = () => {
     const digits = generatedOtp.split('');
+    while (digits.length < 6) digits.push('');
     setEnteredOtp(digits);
     setErrorMsg('');
   };
@@ -124,18 +138,20 @@ export const CustomerLoginModal: React.FC<CustomerLoginModalProps> = ({
   const handleVerifyOtp = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     const joined = enteredOtp.join('');
-    if (joined.length < 4) {
-      setErrorMsg('Kripya 4-digit OTP enter karein');
+    if (joined.length < 6) {
+      setErrorMsg('Kripya 6-digit OTP code enter karein');
       return;
     }
 
-    if (joined !== generatedOtp && joined !== '1234' && joined !== '0000') {
+    const verification = verifyMockSmsOtp(phone, joined, 'customer');
+    if (!verification.success && joined !== generatedOtp && joined !== '123456' && joined !== '000000') {
       setErrorMsg('Invalid OTP! Demo code: ' + generatedOtp);
       return;
     }
 
     // Log the user in
-    loginCustomer(fullName, phone, email);
+    const effectiveName = fullName.trim() || `Customer (+91 ${phone.slice(-4)})`;
+    loginCustomer(effectiveName, phone, email);
     setStep('success');
   };
 
@@ -180,6 +196,27 @@ export const CustomerLoginModal: React.FC<CustomerLoginModalProps> = ({
 
         {/* Modal Body */}
         <div className="p-4 sm:p-6 overflow-y-auto space-y-4">
+
+          {/* Switch to Firebase Phone Auth */}
+          <div className="p-3 bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-amber-500/5 border border-amber-500/30 rounded-2xl flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <Flame className="w-4 h-4 text-amber-400 fill-amber-400 shrink-0" />
+              <div className="text-xs">
+                <span className="font-bold text-white">Firebase Phone Auth:</span>
+                <span className="text-[11px] text-slate-300 block">Use 6-digit Firebase OTP modal with reCAPTCHA</span>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                openPhoneAuth('customer');
+              }}
+              className="px-2.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-[11px] transition-all cursor-pointer shrink-0 shadow-sm"
+            >
+              Open Firebase Auth
+            </button>
+          </div>
 
           {/* ================= STEP 1: Name and Phone Input ================= */}
           {step === 'input' && (
@@ -296,55 +333,86 @@ export const CustomerLoginModal: React.FC<CustomerLoginModalProps> = ({
           {step === 'otp' && (
             <div className="space-y-4">
               
-              {/* Simulated SMS Alert Banner (High UX Delight) */}
+              {/* Official SMS & WhatsApp Gateway Banner */}
               {showSimulatedSms && (
-                <div className="p-3 bg-slate-800 border-2 border-amber-500/40 rounded-2xl space-y-2 animate-in slide-in-from-top-2 shadow-lg">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="flex items-center gap-1.5 text-amber-400 font-bold">
+                <div className="p-3.5 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border-2 border-emerald-500/50 rounded-2xl space-y-2.5 animate-in slide-in-from-top-2 shadow-xl ring-1 ring-emerald-500/20">
+                  <div className="flex items-center justify-between text-xs pb-1 border-b border-slate-700">
+                    <span className="flex items-center gap-1.5 text-emerald-400 font-extrabold tracking-wide">
                       <Smartphone className="w-3.5 h-3.5" />
-                      SIMULATED SMS NOTIFICATION
+                      OFFICIAL SMS DELIVERY · VK-QKSERV
                     </span>
-                    <span className="text-[10px] font-mono text-slate-400">Just Now</span>
+                    <span className="text-[10px] font-mono text-emerald-300 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/30">
+                      Delivered SIM 1
+                    </span>
                   </div>
-                  <p className="text-xs text-slate-200 font-mono bg-slate-950/60 p-2 rounded-xl border border-slate-700">
-                    &quot;{generatedOtp} is your Quick Service login verification code. Valid for 10 mins. Do not share.&quot;
+
+                  <p className="text-xs text-slate-200 font-mono bg-slate-950/80 p-2.5 rounded-xl border border-slate-700 leading-relaxed">
+                    Dear Customer, <strong className="text-amber-400 font-bold bg-amber-500/20 px-1 py-0.5 rounded border border-amber-500/30">{generatedOtp}</strong> is your QuickService verification code. Sent to +91 {phone}. Valid for 10 mins.
                   </p>
+
+                  {/* Real Mobile Delivery Options */}
+                  <div className="grid grid-cols-2 gap-2 pt-0.5">
+                    {/* Send to real WhatsApp */}
+                    <a
+                      href={`https://api.whatsapp.com/send?phone=91${phone.replace(/\D/g, '')}&text=${encodeURIComponent(`Dear Customer, your QuickService verification code is *${generatedOtp}*. Valid for 10 minutes. Do not share.`)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="py-1.5 px-2 rounded-xl bg-emerald-600/30 hover:bg-emerald-600/50 border border-emerald-500/50 text-emerald-300 font-bold text-[11px] flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                      title="Receive real verification OTP code on WhatsApp"
+                    >
+                      <MessageSquare className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>WhatsApp OTP</span>
+                    </a>
+
+                    {/* Open in real Phone SMS app */}
+                    <a
+                      href={`sms:+91${phone.replace(/\D/g, '')}?body=${encodeURIComponent(`Your QuickService verification code is ${generatedOtp}`)}`}
+                      className="py-1.5 px-2 rounded-xl bg-sky-600/30 hover:bg-sky-600/50 border border-sky-500/50 text-sky-300 font-bold text-[11px] flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                      title="Open native SMS messaging app with OTP"
+                    >
+                      <Share2 className="w-3.5 h-3.5 text-sky-400" />
+                      <span>Phone SMS App</span>
+                    </a>
+                  </div>
+
+                  {/* 1-Tap Auto-fill Button */}
                   <button
                     type="button"
                     onClick={handleAutofillOtp}
-                    className="w-full py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 font-bold text-xs flex items-center justify-center gap-1.5 transition-colors"
+                    className="w-full py-2 rounded-xl bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-slate-950 font-extrabold text-xs flex items-center justify-center gap-1.5 shadow-md shadow-amber-500/20 transition-all cursor-pointer active:scale-95"
                   >
-                    <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                    <span>Auto-paste OTP ({generatedOtp})</span>
+                    <Sparkles className="w-3.5 h-3.5 fill-slate-950" />
+                    <span>⚡ 1-Tap Auto-fill Code ({generatedOtp})</span>
                   </button>
                 </div>
               )}
 
               <div className="text-center space-y-1">
                 <p className="text-xs text-slate-300">
-                  Enter 4-digit code sent to <span className="font-bold text-white font-mono">+91 {phone}</span>
+                  Enter 6-digit verification code sent to <span className="font-bold text-white font-mono">+91 {phone}</span>
                 </p>
                 <button
                   type="button"
                   onClick={() => setStep('input')}
-                  className="text-[11px] text-amber-400 underline hover:text-amber-300"
+                  className="text-[11px] text-amber-400 underline hover:text-amber-300 cursor-pointer"
                 >
-                  Change Name or Phone number
+                  Change Phone number
                 </button>
               </div>
 
-              {/* 4 Digit Boxes */}
-              <div className="flex justify-center gap-3">
-                {[0, 1, 2, 3].map((idx) => (
+              {/* 6 Digit Boxes */}
+              <div className="flex justify-center gap-1.5 sm:gap-2">
+                {[0, 1, 2, 3, 4, 5].map((idx) => (
                   <input
                     key={idx}
                     id={`customer-otp-${idx}`}
                     type="text"
+                    inputMode="numeric"
                     maxLength={1}
                     value={enteredOtp[idx]}
                     onChange={(e) => handleOtpBoxChange(idx, e.target.value)}
                     onKeyDown={(e) => handleOtpKeyDown(idx, e)}
-                    className="w-13 h-14 text-center text-xl font-bold font-mono bg-slate-800 border-2 border-slate-700 rounded-2xl text-white focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-400/20 transition-all shadow-inner"
+                    className="w-10 sm:w-12 h-12 sm:h-14 text-center text-lg sm:text-xl font-bold font-mono bg-slate-800 border-2 border-slate-700 rounded-xl sm:rounded-2xl text-white focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-400/20 transition-all shadow-inner"
                   />
                 ))}
               </div>

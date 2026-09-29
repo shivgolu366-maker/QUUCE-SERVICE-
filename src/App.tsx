@@ -10,6 +10,8 @@ import { CallingModal } from './components/common/CallingModal';
 import { ChatModal } from './components/common/ChatModal';
 import { GlobalSmsNotification } from './components/common/GlobalSmsNotification';
 import { AddressEditModal } from './components/common/AddressEditModal';
+import { PhoneAuthModal } from './components/auth/PhoneAuthModal';
+import { OfflineIndicator } from './components/pwa/OfflineIndicator';
 
 const AppContent: React.FC = () => {
   const { 
@@ -20,7 +22,10 @@ const AppContent: React.FC = () => {
     setIsAddressModalOpen,
     editingAddress,
     setEditingAddress,
-    saveCustomerAddress
+    saveCustomerAddress,
+    isPhoneAuthModalOpen,
+    setIsPhoneAuthModalOpen,
+    phoneAuthRole
   } = useQuickService();
 
   return (
@@ -74,6 +79,16 @@ const AppContent: React.FC = () => {
           saveCustomerAddress(newAddr);
         }}
       />
+
+      {/* Global Phone OTP Authentication Modal (Firebase Placeholder Logic) */}
+      <PhoneAuthModal
+        isOpen={isPhoneAuthModalOpen}
+        onClose={() => setIsPhoneAuthModalOpen(false)}
+        defaultRole={phoneAuthRole}
+      />
+
+      {/* PWA Offline Connection Indicator */}
+      <OfflineIndicator />
     </div>
   );
 };

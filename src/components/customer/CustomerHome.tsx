@@ -23,8 +23,11 @@ import {
   Fingerprint,
   LogIn,
   Award,
-  Navigation
+  Navigation,
+  Flame,
+  Smartphone
 } from 'lucide-react';
+import { PWAInstallButton } from '../pwa/PWAInstallButton';
 
 interface CustomerHomeProps {
   onSelectService: (service: ServiceItem) => void;
@@ -45,7 +48,8 @@ export const CustomerHome: React.FC<CustomerHomeProps> = ({
     setIsLoginModalOpen, 
     setIsAadhaarModalOpen,
     setIsAddressModalOpen,
-    setEditingAddress
+    setEditingAddress,
+    openPhoneAuth
   } = useQuickService();
   const [selectedCategory, setSelectedCategory] = useState<ServiceCategory | 'all'>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -99,13 +103,23 @@ export const CustomerHome: React.FC<CustomerHomeProps> = ({
 
           <div className="flex items-center gap-2">
             {(!customer.isLoggedIn && !customer.phone) ? (
-              <button
-                onClick={() => setIsLoginModalOpen(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs shadow-sm transition-all"
-              >
-                <LogIn className="w-3.5 h-3.5" />
-                <span>Login</span>
-              </button>
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={() => openPhoneAuth('customer')}
+                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs shadow-sm transition-all cursor-pointer"
+                  title="Phone OTP Authentication (Firebase Verified)"
+                >
+                  <Flame className="w-3.5 h-3.5 fill-slate-950" />
+                  <span>Phone OTP</span>
+                </button>
+                <button
+                  onClick={() => setIsLoginModalOpen(true)}
+                  className="flex items-center gap-1 px-2 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold border border-slate-700"
+                >
+                  <LogIn className="w-3 h-3" />
+                  <span>Login</span>
+                </button>
+              </div>
             ) : (
               <button
                 onClick={() => setIsLoginModalOpen(true)}
@@ -171,6 +185,27 @@ export const CustomerHome: React.FC<CustomerHomeProps> = ({
           </div>
         </div>
       )}
+
+      {/* PWA Home Screen Installation & Offline Ready Banner */}
+      <div className="px-4">
+        <div className="p-3 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 border border-slate-700/80 rounded-2xl flex items-center justify-between gap-3 shadow-md">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center shrink-0">
+              <Smartphone className="w-4 h-4" />
+            </div>
+            <div className="truncate">
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs font-bold text-white">Install Quick Service App</span>
+                <span className="text-[9px] bg-amber-500/20 text-amber-300 font-mono font-bold px-1.5 py-0.2 rounded">PWA</span>
+              </div>
+              <p className="text-[10px] text-slate-400 truncate">
+                Add to your phone home screen for 1-tap instant booking & offline access
+              </p>
+            </div>
+          </div>
+          <PWAInstallButton variant="compact" />
+        </div>
+      </div>
 
       {/* Search Input */}
       <div className="px-4">

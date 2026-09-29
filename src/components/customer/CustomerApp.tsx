@@ -10,6 +10,7 @@ import { PaymentModal } from '../common/PaymentModal';
 import { PackagesAndSubscriptions } from './PackagesAndSubscriptions';
 import { CustomerLoginModal } from './CustomerLoginModal';
 import { AadhaarVerificationModal } from './AadhaarVerificationModal';
+import { CustomerHeader } from './CustomerHeader';
 import { useQuickService } from '../../context/QuickServiceContext';
 import { ServiceItem } from '../../types';
 import { Compass, CalendarCheck2, User, Radio, Layers, Sparkles } from 'lucide-react';
@@ -88,7 +89,9 @@ export const CustomerApp: React.FC = () => {
 
   return (
     <div className="relative flex-1 flex flex-col bg-slate-950 text-white min-h-full">
-      
+      {/* 100% Dedicated Customer Header */}
+      <CustomerHeader />
+
       {/* Top Navigation Tabs (Explore, Passes, Bookings, Profile placed at the TOP) */}
       {!showLiveTracking && (
         <div className="sticky top-0 z-30 bg-slate-900/95 backdrop-blur-md border-b border-slate-800 px-3 py-2 shadow-md">
