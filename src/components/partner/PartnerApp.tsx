@@ -5,6 +5,7 @@ import { LiveMap } from '../common/LiveMap';
 import { RunnerReimbursementSheet } from './RunnerReimbursementSheet';
 import { PartnerLoginModal } from './PartnerLoginModal';
 import { PartnerProfileEditModal } from './PartnerProfileEditModal';
+import { PartnerDailyEarningsChart } from './PartnerDailyEarningsChart';
 import { 
   Power, 
   MapPin, 
@@ -685,6 +686,9 @@ export const PartnerApp: React.FC = () => {
                 </div>
               </div>
             </div>
+
+            {/* Daily Earnings Trend Chart (Last 7 Days) */}
+            <PartnerDailyEarningsChart partner={activePartner} bookings={bookings} />
 
             {/* Bank Account Info */}
             <div className="p-4 bg-slate-900 border border-slate-800 rounded-2xl flex items-center justify-between">

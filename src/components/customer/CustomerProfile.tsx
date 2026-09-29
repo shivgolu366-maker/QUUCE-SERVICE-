@@ -27,8 +27,12 @@ import {
   KeyRound,
   RotateCcw,
   Navigation,
-  Trash2
+  Trash2,
+  Flame,
+  Download,
+  Smartphone
 } from 'lucide-react';
+import { PWAInstallButton } from '../pwa/PWAInstallButton';
 
 export const CustomerProfile: React.FC = () => {
   const { 
@@ -46,7 +50,9 @@ export const CustomerProfile: React.FC = () => {
     triggerGlobalSms,
     sendMockSmsOtp,
     verifyMockSmsOtp,
-    updateCustomerProfile 
+    updateCustomerProfile,
+    openPhoneAuth,
+    openMobileLogin
   } = useQuickService();
 
   const [showAddMoney, setShowAddMoney] = useState(false);
@@ -60,12 +66,26 @@ export const CustomerProfile: React.FC = () => {
 
   // Inline Phone & OTP Login State
   const [showInlineLogin, setShowInlineLogin] = useState<boolean>(!customer.isLoggedIn && !customer.phone);
-  const [loginPhone, setLoginPhone] = useState(customer.phone ? customer.phone.replace('+91', '').trim() : '');
-  const [loginName, setLoginName] = useState(customer.name === 'Guest Customer' ? '' : customer.name);
+  const [loginPhone, setLoginPhone] = useState(customer.phone ? customer.phone.replace('+91', '').trim() : '9820154321');
+  const [loginName, setLoginName] = useState(customer.name === 'Guest Customer' ? 'Aarav Malhotra' : customer.name);
   const [loginStep, setLoginStep] = useState<'phone' | 'otp'>('phone');
   const [loginOtp, setLoginOtp] = useState('');
+  const [generatedOtp, setGeneratedOtp] = useState('492815');
   const [otpTimer, setOtpTimer] = useState(30);
+  const [showSmsBanner, setShowSmsBanner] = useState(false);
   const [authError, setAuthError] = useState('');
+
+  // Listen to Global SMS Banner's "⚡ Auto-fill OTP" button
+  useEffect(() => {
+    const handleAutofillEvent = (e: any) => {
+      if (e.detail?.otp && showInlineLogin && loginStep === 'otp') {
+        setLoginOtp(e.detail.otp);
+        setAuthError('');
+      }
+    };
+    window.addEventListener('quick_service_autofill_otp', handleAutofillEvent);
+    return () => window.removeEventListener('quick_service_autofill_otp', handleAutofillEvent);
+  }, [showInlineLogin, loginStep]);
 
   // OTP Countdown timer
   useEffect(() => {
@@ -83,24 +103,28 @@ export const CustomerProfile: React.FC = () => {
       setAuthError('Kripya valid 10-digit mobile number enter karein');
       return;
     }
-    await sendMockSmsOtp(cleanDigits, 'customer');
+    const res = await sendMockSmsOtp(cleanDigits, 'customer', 'VK-QKSERV');
+    setGeneratedOtp(res.otp);
     setAuthError('');
     setLoginStep('otp');
     setOtpTimer(30);
+    setShowSmsBanner(true);
   };
 
   const handleVerifyOtp = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     const cleanOtp = loginOtp.trim();
-    if (cleanOtp.length < 4) {
-      setAuthError('Kripya 4 ya 6-digit OTP enter karein');
+    const verifyResult = verifyMockSmsOtp(loginPhone, cleanOtp, 'customer');
+    if (!verifyResult.success && cleanOtp !== generatedOtp && cleanOtp !== '123456' && cleanOtp !== '000000') {
+      setAuthError(`Galat OTP! Kripya ${generatedOtp} ya 123456 enter karein`);
       return;
     }
     setAuthError('');
-    loginCustomer(loginName.trim() || `Customer (+91 ${loginPhone.slice(-4)})`, loginPhone);
+    loginCustomer(loginName.trim() || 'Aarav Malhotra', loginPhone);
     setShowInlineLogin(false);
+    setShowSmsBanner(false);
     setLoginStep('phone');
-    setSuccessMsg('Mobile number verified & logged in successfully! 🎉');
+    setSuccessMsg('Mobile Number verified & logged in successfully! 🎉');
     setTimeout(() => setSuccessMsg(''), 3000);
   };
 
@@ -161,6 +185,32 @@ export const CustomerProfile: React.FC = () => {
               )}
             </div>
 
+            {/* Simulated SMS Alert Banner */}
+            {showSmsBanner && (
+              <div className="p-3 bg-amber-500/15 border border-amber-500/40 rounded-2xl space-y-1.5 animate-in slide-in-from-top-2">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-bold text-amber-300 flex items-center gap-1.5">
+                    <MessageSquare className="w-3.5 h-3.5 text-amber-400" />
+                    <span>SMS Notification · QuickService</span>
+                  </span>
+                  <span className="text-[10px] text-slate-400 font-mono">Just now</span>
+                </div>
+                <p className="text-xs text-white">
+                  Your QuickService login OTP is <span className="font-mono font-bold text-amber-300 bg-amber-500/20 px-1.5 py-0.5 rounded">{generatedOtp}</span>. Valid for 10 minutes.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLoginOtp(generatedOtp);
+                    setAuthError('');
+                  }}
+                  className="text-[11px] font-bold text-amber-300 bg-amber-500/25 hover:bg-amber-500/40 px-2.5 py-1 rounded-lg border border-amber-500/40 flex items-center gap-1 cursor-pointer transition-all active:scale-95"
+                >
+                  <span>⚡ Auto-fill OTP ({generatedOtp})</span>
+                </button>
+              </div>
+            )}
+
             {/* Step 1: Phone & Name Input */}
             {loginStep === 'phone' ? (
               <form onSubmit={handleSendOtp} className="space-y-3">
@@ -211,7 +261,7 @@ export const CustomerProfile: React.FC = () => {
                   className="w-full py-3 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-extrabold text-xs flex items-center justify-center gap-2 shadow-md shadow-amber-500/20 active:scale-95 transition-all cursor-pointer"
                 >
                   <KeyRound className="w-4 h-4" />
-                  <span>Send OTP</span>
+                  <span>Send OTP / OTP Bhejo</span>
                 </button>
               </form>
             ) : (
@@ -237,7 +287,7 @@ export const CustomerProfile: React.FC = () => {
                       setLoginOtp(e.target.value.replace(/\D/g, '').slice(0, 6));
                       setAuthError('');
                     }}
-                    placeholder="Enter 6-digit OTP"
+                    placeholder="Enter 6-digit OTP (e.g. 492815)"
                     maxLength={6}
                     className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-center text-lg font-mono tracking-widest text-white placeholder-slate-500 focus:outline-none focus:border-amber-500 transition-colors"
                     autoFocus
@@ -250,8 +300,10 @@ export const CustomerProfile: React.FC = () => {
                     type="button"
                     disabled={otpTimer > 0}
                     onClick={async () => {
-                      await sendMockSmsOtp(loginPhone, 'customer');
+                      const res = await sendMockSmsOtp(loginPhone, 'customer', 'VK-QKSERV');
+                      setGeneratedOtp(res.otp);
                       setOtpTimer(30);
+                      setShowSmsBanner(true);
                     }}
                     className={`flex items-center gap-1 ${
                       otpTimer > 0 ? 'text-slate-600 cursor-not-allowed' : 'text-amber-400 hover:underline cursor-pointer'
@@ -619,6 +671,43 @@ export const CustomerProfile: React.FC = () => {
       </div>
 
       {/* ========================================================================= */}
+      {/* 3.5. APP INSTALLATION & PWA HOME SCREEN SETUP */}
+      {/* ========================================================================= */}
+      <div className="p-4 sm:p-5 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border-2 border-amber-500/40 rounded-3xl space-y-3 shadow-lg">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="w-10 h-10 rounded-2xl bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center justify-center shrink-0">
+              <Smartphone className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h4 className="text-xs font-bold text-white uppercase tracking-wider">
+                  App Installation &amp; Offline Ready
+                </h4>
+                <span className="text-[9px] bg-amber-500/20 text-amber-300 font-mono font-bold px-1.5 py-0.2 rounded border border-amber-500/30">
+                  PWA
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-300 mt-0.5">
+                Install Quick Service directly on Android, iPhone, or Desktop without app stores.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex flex-col sm:flex-row gap-2 pt-1">
+          <PWAInstallButton variant="primary" className="flex-1" />
+          <button
+            onClick={() => openMobileLogin('customer')}
+            className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-2xl bg-slate-800 hover:bg-slate-700 border border-amber-500/40 text-amber-300 font-bold text-xs transition-colors cursor-pointer"
+          >
+            <Flame className="w-4 h-4 text-amber-400 fill-amber-400" />
+            <span>Firebase Phone OTP</span>
+          </button>
+        </div>
+      </div>
+
+      {/* ========================================================================= */}
       {/* 4. SAVED ADDRESSES (Address Edit & GPS Auto-Detection - User Requirement) */}
       {/* ========================================================================= */}
       <div className="p-4 bg-slate-900 border border-slate-800 rounded-3xl space-y-3">
@@ -766,6 +855,39 @@ export const CustomerProfile: React.FC = () => {
             </div>
             <ChevronRight className="w-4 h-4 text-slate-500" />
           </div>
+        </div>
+      </div>
+
+      {/* ========================================================================= */}
+      {/* 6. PROFESSIONAL NETWORK (Worker & Staff Links) */}
+      {/* ========================================================================= */}
+      <div className="p-4 bg-slate-900/50 border border-slate-800/80 rounded-3xl space-y-2 text-xs">
+        <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+          Professional Network
+        </h4>
+
+        <div className="space-y-1.5">
+          <button
+            onClick={() => setViewMode('partner')}
+            className="w-full p-2.5 bg-slate-800/60 hover:bg-slate-800 border border-slate-700/50 rounded-xl flex items-center justify-between transition-colors text-left"
+          >
+            <div className="flex items-center gap-2.5 text-amber-300 font-medium">
+              <ShieldCheck className="w-4 h-4 text-amber-400" />
+              <span>Become a Partner / Partner Login</span>
+            </div>
+            <ChevronRight className="w-4 h-4 text-slate-500" />
+          </button>
+
+          <button
+            onClick={() => setViewMode('admin')}
+            className="w-full p-2.5 bg-slate-800/30 hover:bg-slate-800/60 border border-slate-800 rounded-xl flex items-center justify-between transition-colors text-left text-slate-400 hover:text-slate-300"
+          >
+            <div className="flex items-center gap-2.5 text-slate-400">
+              <Lock className="w-3.5 h-3.5" />
+              <span className="text-[11px]">Operations & Staff Portal</span>
+            </div>
+            <ChevronRight className="w-3.5 h-3.5 text-slate-600" />
+          </button>
         </div>
       </div>
 

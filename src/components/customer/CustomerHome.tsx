@@ -49,7 +49,8 @@ export const CustomerHome: React.FC<CustomerHomeProps> = ({
     setIsAadhaarModalOpen,
     setIsAddressModalOpen,
     setEditingAddress,
-    openPhoneAuth
+    openPhoneAuth,
+    openMobileLogin
   } = useQuickService();
   const [selectedCategory, setSelectedCategory] = useState<ServiceCategory | 'all'>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -105,9 +106,9 @@ export const CustomerHome: React.FC<CustomerHomeProps> = ({
             {(!customer.isLoggedIn && !customer.phone) ? (
               <div className="flex items-center gap-1.5">
                 <button
-                  onClick={() => openPhoneAuth('customer')}
+                  onClick={() => openMobileLogin('customer')}
                   className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs shadow-sm transition-all cursor-pointer"
-                  title="Phone OTP Authentication (Firebase Verified)"
+                  title="Mobile Phone OTP Authentication (Firebase Web SDK)"
                 >
                   <Flame className="w-3.5 h-3.5 fill-slate-950" />
                   <span>Phone OTP</span>

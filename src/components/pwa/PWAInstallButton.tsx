@@ -5,11 +5,13 @@ import { Download, Smartphone, Share, PlusSquare, CheckCircle2, X, Apple, Sparkl
 interface PWAInstallButtonProps {
   className?: string;
   variant?: 'primary' | 'compact' | 'outline' | 'banner';
+  showLabel?: boolean;
 }
 
 export const PWAInstallButton: React.FC<PWAInstallButtonProps> = ({
   className = '',
   variant = 'primary',
+  showLabel = true,
 }) => {
   const { isInstallable, isInstalled, isIOS, install } = usePWAInstall();
   const [showIOSModal, setShowIOSModal] = useState(false);
@@ -18,9 +20,9 @@ export const PWAInstallButton: React.FC<PWAInstallButtonProps> = ({
   // If already installed and running standalone
   if (isInstalled) {
     return (
-      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold">
-        <CheckCircle2 className="w-3.5 h-3.5" />
-        <span className="hidden sm:inline">Installed App</span>
+      <span className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold ${className}`}>
+        <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+        <span className="hidden sm:inline">Installed</span>
       </span>
     );
   }
@@ -44,7 +46,7 @@ export const PWAInstallButton: React.FC<PWAInstallButtonProps> = ({
       <>
         <button
           onClick={handleInstallClick}
-          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-sm ${
+          className={`flex items-center gap-1.5 px-2 sm:px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-sm shrink-0 ${
             isInstallable
               ? 'bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 shadow-amber-500/20 active:scale-95'
               : 'bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/30'
@@ -52,7 +54,12 @@ export const PWAInstallButton: React.FC<PWAInstallButtonProps> = ({
           title="Install Quick Service on your Android, iOS, or Desktop home screen"
         >
           <Download className="w-3.5 h-3.5 shrink-0" />
-          <span>Install App</span>
+          {showLabel && (
+            <>
+              <span className="hidden md:inline">Install App</span>
+              <span className="md:hidden">Install</span>
+            </>
+          )}
         </button>
 
         {showIOSModal && <IOSInstallModal onClose={() => setShowIOSModal(false)} />}

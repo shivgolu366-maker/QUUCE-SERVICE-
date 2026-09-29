@@ -169,6 +169,14 @@ interface QuickServiceContextType {
   withdrawPartnerEarnings: (amount: number) => void;
 
   // Actions - Admin
+  isAdminAuthenticated: boolean;
+  loginAdmin: (passcode?: string) => boolean;
+  logoutAdmin: () => void;
+  addService: (service: ServiceItem) => void;
+  updateServicePrice: (serviceId: string, newPrice: number) => void;
+  deleteService: (serviceId: string) => void;
+  togglePartnerBlock: (partnerId: string) => void;
+  updateBookingStatusAdmin: (bookingId: string, status: Booking['status']) => void;
   updateSurgeMultiplier: (surge: number) => void;
   updateCommissionRate: (rate: number) => void;
   verifyPartnerKYC: (partnerId: string, docType: string, approve: boolean, reason?: string) => void;
@@ -257,7 +265,12 @@ export const QuickServiceProvider: React.FC<{ children: React.ReactNode }> = ({ 
   });
 
   // Services
-  const [services] = useState<ServiceItem[]>(SERVICES_CATALOG);
+  const [services, setServices] = useState<ServiceItem[]>(SERVICES_CATALOG);
+
+  // Admin Auth State
+  const [isAdminAuthenticated, setIsAdminAuthenticated] = useState<boolean>(() => {
+    return typeof localStorage !== 'undefined' && localStorage.getItem('qs_admin_auth') === 'true';
+  });
 
   // Bookings
   const [bookings, setBookings] = useState<Booking[]>(() => {
@@ -1162,6 +1175,44 @@ export const QuickServiceProvider: React.FC<{ children: React.ReactNode }> = ({ 
     }));
   };
 
+  const loginAdmin = (passcode?: string) => {
+    if (!passcode || passcode === '1234' || passcode === 'admin') {
+      setIsAdminAuthenticated(true);
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem('qs_admin_auth', 'true');
+      }
+      return true;
+    }
+    return false;
+  };
+
+  const logoutAdmin = () => {
+    setIsAdminAuthenticated(false);
+    if (typeof localStorage !== 'undefined') {
+      localStorage.removeItem('qs_admin_auth');
+    }
+  };
+
+  const addService = (service: ServiceItem) => {
+    setServices(prev => [service, ...prev]);
+  };
+
+  const updateServicePrice = (serviceId: string, newPrice: number) => {
+    setServices(prev => prev.map(s => s.id === serviceId ? { ...s, basePrice: newPrice } : s));
+  };
+
+  const deleteService = (serviceId: string) => {
+    setServices(prev => prev.filter(s => s.id !== serviceId));
+  };
+
+  const togglePartnerBlock = (partnerId: string) => {
+    setPartners(prev => prev.map(p => p.id === partnerId ? { ...p, isBlocked: !p.isBlocked } : p));
+  };
+
+  const updateBookingStatusAdmin = (bookingId: string, status: Booking['status']) => {
+    setBookings(prev => prev.map(b => b.id === bookingId ? { ...b, status } : b));
+  };
+
   const addCoupon = (coupon: Coupon) => {
     setCoupons(prev => [coupon, ...prev]);
   };
@@ -1314,6 +1365,14 @@ export const QuickServiceProvider: React.FC<{ children: React.ReactNode }> = ({ 
         updateSurgeMultiplier,
         updateCommissionRate,
         verifyPartnerKYC,
+        isAdminAuthenticated,
+        loginAdmin,
+        logoutAdmin,
+        addService,
+        updateServicePrice,
+        deleteService,
+        togglePartnerBlock,
+        updateBookingStatusAdmin,
         addCoupon,
         toggleCoupon,
         resolveEmergencyAlert,
